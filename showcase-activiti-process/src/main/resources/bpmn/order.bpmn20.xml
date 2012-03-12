@@ -1,0 +1,52 @@
+<definitions id="definitions" targetNamespace="order"
+             xmlns:activiti="http://activiti.org/bpmn"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+
+    <process id="order" name="order process">
+
+        <startEvent id="start"/>
+        <sequenceFlow sourceRef="start" targetRef="validate"/>
+
+        <serviceTask id="validate"
+                     activiti:resultVariable="valid"
+                     activiti:expression="#{@validateOrder.isValid(#order)}"/>
+        <sequenceFlow sourceRef="validate" targetRef="validGateway"/>
+
+        <exclusiveGateway id="validGateway"/>
+        <sequenceFlow sourceRef="validGateway" targetRef="warehouse">
+            <conditionExpression>#{#valid==true}</conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow sourceRef="validGateway" targetRef="error">
+            <conditionExpression>#{#valid==false}</conditionExpression>
+        </sequenceFlow>
+
+        <subProcess id="warehouse">
+            <multiInstanceLoopCharacteristics
+                    isSequential="false"
+                    activiti:collection="#{#order.items}"
+                    activiti:elementVariable="orderItem"/>
+
+            <startEvent id="warehouseStart"/>
+            <sequenceFlow sourceRef="warehouseStart" targetRef="reservation"/>
+
+            <serviceTask id="reservation"
+                         activiti:resultVariable="reservationId"
+                         activiti:expression="#{@warehouse.reserveIfAvailable(#ARTICLE_ID, #AMOUNT, #ORDER_ID)}"/>
+            <sequenceFlow sourceRef="reservation" targetRef="warehouseEnd"/>
+
+            <endEvent id="warehouseEnd"/>
+        </subProcess>
+        <sequenceFlow sourceRef="warehouse" targetRef="restOfTheProcessHere"/>
+
+        <manualTask id="restOfTheProcessHere"/>
+        <sequenceFlow sourceRef="restOfTheProcessHere" targetRef="end"/>
+
+        <endEvent id="end"/>
+
+        <endEvent id="error">
+            <errorEventDefinition errorRef="generalerror"/>
+        </endEvent>
+
+    </process>
+
+</definitions>
